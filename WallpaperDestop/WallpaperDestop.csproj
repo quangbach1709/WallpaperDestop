@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>WinExe</OutputType>
+        <TargetFramework>net8.0-windows10.0.17763.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <UseWPF>true</UseWPF>
+        <AssemblyTitle>WallpaperDestop</AssemblyTitle>
+        <Description>Lock Screen Wallpaper Manager powered by Unsplash</Description>
+
+        <!--
+            SupportedOSPlatformVersion: Khai báo phiên bản Windows TỐI THIỂU mà app hỗ trợ.
+            Bắt buộc phải có khi gọi WinRT API (Windows.System.UserProfile.LockScreen, etc.)
+            từ .NET 8+. Nếu thiếu, runtime có thể không resolve đúng WinRT projection.
+            
+            17763 = Windows 10 version 1809 (October 2018 Update) — phiên bản tối thiểu
+            có đủ các API LockScreen/UserProfile cần thiết.
+        -->
+        <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
+
+        <!--
+            WindowsPackageType: set "None" để chạy như unpackaged desktop app.
+            Nếu không set, một số WinRT API (đặc biệt StorageFile.GetFileFromPathAsync)
+            có thể bị lỗi quyền truy cập vì Windows nghĩ app cần sandbox.
+        -->
+        <WindowsPackageType>None</WindowsPackageType>
+    </PropertyGroup>
+
+    <!-- NuGet Packages -->
+    <ItemGroup>
+        <PackageReference Include="Microsoft.Toolkit.Uwp.Notifications" Version="7.1.3" />
+        <PackageReference Include="System.Text.Json" Version="8.0.5" />
+    </ItemGroup>
+
+    <!-- Embed Assets -->
+    <ItemGroup>
+        <Resource Include="Assets\**" />
+    </ItemGroup>
+
+</Project>
