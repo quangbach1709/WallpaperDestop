@@ -7,6 +7,7 @@
         xmlns:views="clr-namespace:WallpaperDestop.Views"
         mc:Ignorable="d"
         Title="WallpaperDestop - Lock Screen Manager"
+        Icon="{StaticResource AppIcon}"
         Height="720" Width="1100"
         MinHeight="600" MinWidth="900"
         WindowStartupLocation="CenterScreen"
@@ -38,8 +39,8 @@
 
                     <!-- App Title -->
                     <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                        <TextBlock Text="&#xE7F4;" FontFamily="Segoe MDL2 Assets" FontSize="28"
-                                   Foreground="#58A6FF" VerticalAlignment="Center" Margin="0,0,12,0" />
+                        <Image Source="{StaticResource AppIcon}" Width="32" Height="32" 
+                               VerticalAlignment="Center" Margin="0,0,12,0" />
                         <StackPanel>
                             <TextBlock Text="WallpaperDestop" FontSize="20" FontWeight="SemiBold" Foreground="#E6EDF3" />
                             <TextBlock Text="Lock Screen Wallpaper Manager" FontSize="11" Foreground="#8B949E" Margin="0,-2,0,0" />
