@@ -53,12 +53,15 @@ public partial class App : Application
     }
 
     /// <summary>
-    /// Chế độ chạy ngầm hoàn toàn (--autorun):
-    /// 1. Lấy 1 ảnh landscape random từ Unsplash API (/photos/random?orientation=landscape)
-    /// 2. Tải ảnh về và set làm lock screen
-    /// 3. Hiển thị Windows Toast notification
-    /// 4. Dọn dẹp file ảnh cũ
-    /// 5. Tự động shutdown application để không tốn RAM
+    /// Chế độ chạy ngầm hoàn toàn với Anti-Duplication (--autorun):
+    /// 1. Lấy 5 ảnh landscape random từ Unsplash API (/photos/random?orientation=landscape&count=5)
+    /// 2. Lọc ảnh chưa dùng dựa trên lịch sử UsedImageIds.json (tối đa 100 ID)
+    /// 3. Chọn ảnh đầu tiên chưa dùng, fallback ảnh đầu tiên nếu tất cả đã dùng
+    /// 4. Tải ảnh về và set làm lock screen
+    /// 5. Lưu ID ảnh vào lịch sử để tránh trùng lặp
+    /// 6. Hiển thị Windows Toast notification
+    /// 7. Dọn dẹp file ảnh cũ
+    /// 8. Tự động shutdown application để không tốn RAM
     /// 
     /// LƯU Ý: Xử lý async/await an toàn trong OnStartup synchronous method
     /// </summary>
@@ -81,10 +84,11 @@ public partial class App : Application
             }
 
             using var unsplashService = new UnsplashService(settingsService);
+            var imageHistoryService = new ImageHistoryService();
 
-            // Bước 1: Lấy random landscape wallpaper
-            Debug.WriteLine($"[App] Fetching random landscape wallpaper...");
-            var photo = await unsplashService.GetRandomPhotoAsync("desktop wallpaper");
+            // Bước 1: Lấy random landscape wallpaper với anti-duplication
+            Debug.WriteLine($"[App] Fetching random landscape wallpaper with anti-duplication...");
+            var photo = await unsplashService.GetRandomPhotoWithAntiDuplicationAsync("desktop wallpaper", imageHistoryService);
 
             if (photo == null)
             {
@@ -93,7 +97,7 @@ public partial class App : Application
                 return;
             }
 
-            Debug.WriteLine($"[App] Got photo: {photo.Id} by {photo.User.Name} ({photo.Width}x{photo.Height})");
+            Debug.WriteLine($"[App] Selected unique photo: {photo.Id} by {photo.User.Name} ({photo.Width}x{photo.Height})");
 
             // Bước 2: Download và set lock screen
             Debug.WriteLine($"[App] Downloading and setting lock screen...");
@@ -103,7 +107,11 @@ public partial class App : Application
             {
                 Debug.WriteLine($"[App] Lock screen set successfully!");
                 
-                // Bước 3: Hiển thị success toast notification
+                // Bước 3: Lưu ID ảnh vào lịch sử để tránh trùng lặp trong tương lai
+                Debug.WriteLine($"[App] Adding image ID to history for anti-duplication...");
+                await imageHistoryService.AddImageIdAsync(photo.Id);
+                
+                // Bước 4: Hiển thị success toast notification
                 Debug.WriteLine($"[App] Showing success notification...");
                 var downloadedImagePath = LockScreenService.GetWallpaperPath(photo.Id);
                 NotificationService.ShowSuccessNotification(photo.User.Name, downloadedImagePath);

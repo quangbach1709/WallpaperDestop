@@ -8,16 +8,17 @@ using WallpaperDestop.Models;
 
 namespace WallpaperDestop.Services;
 
-    /// <summary>
-    /// Service to interact with the Unsplash API for HIGH-QUALITY LANDSCAPE WALLPAPERS.
-    /// 
-    /// KEY OPTIMIZATIONS:
-    /// - BẮT BUỘC sử dụng /search/photos với query "desktop wallpapers" 
-    /// - BẮT BUỘC orientation=landscape cho tất cả requests
-    /// - Ưu tiên urls.raw với tham số tối ưu (w=1920&q=80&fit=crop)
-    /// - Fallback urls.full, TUYỆT ĐỐI KHÔNG dùng regular/small
-    /// - Preview UI sử dụng urls.raw với w=800&q=75&fm=webp
-    /// </summary>
+/// <summary>
+/// Service to interact with the Unsplash API for HIGH-QUALITY LANDSCAPE WALLPAPERS.
+/// 
+/// KEY OPTIMIZATIONS:
+/// - BẮT BUỘC sử dụng /search/photos với query "desktop wallpapers" 
+/// - BẮT BUỘC orientation=landscape cho tất cả requests
+/// - Ưu tiên urls.raw với tham số tối ưu (w=1920&q=80&fit=crop)
+/// - Fallback urls.full, TUYỆT ĐỐI KHÔNG dùng regular/small
+/// - Preview UI sử dụng urls.raw với w=800&q=75&fm=webp
+/// - Anti-duplication: Lấy 5 ảnh/lần, lọc theo lịch sử UsedImageIds.json
+/// </summary>
 public sealed class UnsplashService : IDisposable
 {
     private const string BaseUrl = "https://api.unsplash.com";
@@ -177,6 +178,90 @@ public sealed class UnsplashService : IDisposable
             }
             
             return photo;
+        }
+        catch (UnsplashRateLimitException)
+        {
+            throw;
+        }
+        catch (HttpRequestException ex) when (ex.Message.Contains("403") || ex.Message.Contains("429"))
+        {
+            throw new UnsplashRateLimitException(HttpStatusCode.Forbidden, "Đã hết lượt tải ảnh miễn phí. Vui lòng thử lại sau", ex);
+        }
+    }
+
+    /// <summary>
+    /// Fetch multiple random landscape wallpapers with anti-duplication filtering.
+    /// Tối ưu API: Lấy 5 ảnh trong 1 lần gọi, lọc ảnh chưa dùng, tiết kiệm rate limit.
+    /// </summary>
+    /// <param name="query">Search query (optional, defaults to "desktop wallpaper")</param>
+    /// <param name="imageHistoryService">Service to check for used images</param>
+    /// <returns>First unused photo from the batch, or first photo as fallback</returns>
+    /// <exception cref="UnsplashRateLimitException">When rate limit is exceeded (HTTP 403/429)</exception>
+    public async Task<UnsplashPhoto?> GetRandomPhotoWithAntiDuplicationAsync(string? query = null, ImageHistoryService? imageHistoryService = null)
+    {
+        EnsureAuthHeader();
+
+        // BẮT BUỘC: orientation=landscape và query wallpaper cụ thể
+        var searchQuery = !string.IsNullOrWhiteSpace(query) 
+            ? query 
+            : "desktop wallpaper"; // Default query cho random wallpaper
+
+        // Tối ưu API: Lấy 5 ảnh trong 1 lần gọi để tiết kiệm rate limit
+        var url = $"/photos/random?orientation=landscape&query={Uri.EscapeDataString(searchQuery)}&count=5";
+
+        Debug.WriteLine($"[UnsplashService] Anti-duplication Random API URL: {BaseUrl}{url}");
+
+        try
+        {
+            var response = await _apiClient.GetAsync(url);
+            
+            // Handle rate limit errors
+            if (response.StatusCode == HttpStatusCode.Forbidden || response.StatusCode == HttpStatusCode.TooManyRequests)
+            {
+                throw new UnsplashRateLimitException(response.StatusCode);
+            }
+            
+            response.EnsureSuccessStatusCode();
+
+            var json = await response.Content.ReadAsStringAsync();
+            
+            // API trả về mảng khi count > 1
+            var photos = JsonSerializer.Deserialize<List<UnsplashPhoto>>(json, JsonOptions) ?? new List<UnsplashPhoto>();
+            
+            Debug.WriteLine($"[UnsplashService] Received {photos.Count} random landscape wallpapers");
+            
+            if (!photos.Any())
+            {
+                Debug.WriteLine($"[UnsplashService] No photos returned from random API");
+                return null;
+            }
+
+            // Log thông tin các ảnh nhận được
+            foreach (var photo in photos)
+            {
+                Debug.WriteLine($"[UnsplashService] Photo {photo.Id}: {photo.Width}x{photo.Height} by {photo.User.Name}");
+            }
+
+            // Nếu không có ImageHistoryService, trả về ảnh đầu tiên
+            if (imageHistoryService == null)
+            {
+                Debug.WriteLine($"[UnsplashService] No history service provided, returning first photo: {photos.First().Id}");
+                return photos.First();
+            }
+
+            // Tìm ảnh ĐẦU TIÊN chưa được sử dụng
+            var unusedPhoto = await imageHistoryService.FindFirstUnusedImageAsync(photos, photo => photo.Id);
+            
+            if (unusedPhoto != null)
+            {
+                Debug.WriteLine($"[UnsplashService] Selected unused photo: {unusedPhoto.Id} by {unusedPhoto.User.Name}");
+                return unusedPhoto;
+            }
+
+            // Xử lý ngoại lệ: Cả 5 ảnh đều đã dùng - lấy ảnh đầu tiên làm fallback
+            Debug.WriteLine($"[UnsplashService] WARNING: All {photos.Count} photos have been used before!");
+            Debug.WriteLine($"[UnsplashService] Using first photo as fallback: {photos.First().Id}");
+            return photos.First();
         }
         catch (UnsplashRateLimitException)
         {
