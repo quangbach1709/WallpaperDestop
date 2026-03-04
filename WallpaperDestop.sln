@@ -1,6 +1,6 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WallpaperDestop", "WallpaperDestop\WallpaperDestop.csproj", "{DE3B4287-BA08-49BE-A55E-F32714AEFC4F}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WallpaperDestop", "WallpaperDestop.csproj", "{DE3B4287-BA08-49BE-A55E-F32714AEFC4F}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
